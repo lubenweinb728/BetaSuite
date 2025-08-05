@@ -1,5 +1,10 @@
 # BetaSuite
 
+## 此版本为使用新版模型版本（未完成）。无vision功能。
+原版使用的模型https://github.com/notAI-tech/NudeNet/releases/download/v0/detector_v2_default_checkpoint.onnx
+改为同作者新版模型https://github.com/notAI-tech/NudeNet/releases/download/v3.4-weights/640m.onnx
+适配原版代码。该作者模型无nms，需手动增加nms功能（以提供）
+
 ## Welcome to the BetaSuite installation guidelines. 
 BetaSuite is composed of the following programs
 - BetaTest: this is a test program that tries to ensure, as much as it can, that all of your dependencies are set up correctly.
