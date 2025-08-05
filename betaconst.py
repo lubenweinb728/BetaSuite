@@ -1,4 +1,4 @@
-global_min_prob = 0.30
+global_min_prob = 0.10
 picture_saved_box_version = 1
 
 ptb_hash_len = 4
