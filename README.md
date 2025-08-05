@@ -1,5 +1,7 @@
 # BetaSuite
 
+## 此版本为原版改版，仅对consor改动。无vision功能
+
 ## Welcome to the BetaSuite installation guidelines. 
 BetaSuite is composed of the following programs
 - BetaTest: this is a test program that tries to ensure, as much as it can, that all of your dependencies are set up correctly.
