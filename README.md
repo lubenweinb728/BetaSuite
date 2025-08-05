@@ -1,6 +1,6 @@
 # BetaSuite
 
-## 此版本为多模型版本 
+## 此版本为多模型版本，无vision功能
 
 ## Welcome to the BetaSuite installation guidelines. 
 BetaSuite is composed of the following programs
