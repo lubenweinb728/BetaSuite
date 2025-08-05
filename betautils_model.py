@@ -7,75 +7,95 @@ import betaconfig
 import betaconst
 
 def get_session():
-    if betaconfig.gpu_enabled:
-        providers = [ ( 'CUDAExecutionProvider', { 'device_id': betaconfig.cuda_device_id } ) ]
-    else:
-        providers = [ ( 'CPUExecutionProvider', {} ) ]
-
-    session = onnxruntime.InferenceSession( '../model/detector_v2_default_checkpoint.onnx', providers=providers )
-    return( session )
-
-def get_resize_scale( img_h, img_w, max_length ):
-    if max_length == 0:
-        return(1)
-    else:
-        return( max_length/max(img_h,img_w) )
-
-def get_image_resize_scale( raw_img, max_length ):
-    (s1, s2, _) = raw_img.shape
-    return( get_resize_scale( s1, s2, max_length ) )
-
-def prep_img_for_nn( raw_img, size, scale ):
-    adj_img = cv2.resize( raw_img, None, fx=scale, fy=scale )
-
-    if size > 0:
-        (h,w,_) = adj_img.shape
-        adj_img = cv2.copyMakeBorder( adj_img, 0, size - h, 0, size - w, cv2.BORDER_CONSTANT, value=0 )
-
-    adj_img = adj_img.astype(np.float32)
-    adj_img -= [103.939, 116.779, 123.68 ]
-    return( adj_img )
-
-def get_raw_model_output( img_array, session ):
-    output = [
-            np.zeros( (len( img_array ), 300, 4 ), dtype = np.float32 ),
-            np.zeros( (len( img_array ), 300 ), dtype = np.float32 ),
-            np.zeros( (len( img_array ), 300 ), dtype = np.int32 ),
+    providers = [
+        ('CUDAExecutionProvider', {'device_id': betaconfig.cuda_device_id})
+    ] if betaconfig.gpu_enabled else [
+        ('CPUExecutionProvider', {})
     ]
+    session = onnxruntime.InferenceSession('../model/640m.onnx', providers=providers)
+    return session
 
-    for i,img in enumerate( img_array ):
-        (output[0][i], output[1][i], output[2][i]) = session.run( betaconst.model_outputs, {betaconst.model_input: [img_array[i]]})
 
-    return( output )
+def prep_img_for_nn(raw_img, size, _scale_not_used=None):
+    h, w = raw_img.shape[:2]
+    scale = min(size / w, size / h)
+    new_w, new_h = int(w * scale), int(h * scale)
 
-def raw_boxes_from_model_output( model_output, scale_array, t ):
+    resized = cv2.resize(raw_img, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
+
+    img = np.full((size, size, 3), 114, dtype=np.uint8)
+    pad_w = (size - new_w) // 2
+    pad_h = (size - new_h) // 2
+    img[pad_h:pad_h + new_h, pad_w:pad_w + new_w] = resized
+
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
+    return img, scale, pad_w, pad_h
+
+
+def scale_coords_back(boxes, scale, pad_w, pad_h):
+    boxes[:, 0] = (boxes[:, 0] - pad_w) / scale
+    boxes[:, 1] = (boxes[:, 1] - pad_h) / scale
+    boxes[:, 2] = (boxes[:, 2] - pad_w) / scale
+    boxes[:, 3] = (boxes[:, 3] - pad_h) / scale
+    return boxes
+
+
+def get_raw_model_output(img_array, session):
+    outputs = []
+    for img in img_array:
+        input_tensor = np.transpose(img, (2, 0, 1))[np.newaxis, :, :, :].astype(np.float32)
+        try:
+            output = session.run(None, {betaconst.model_input: input_tensor})
+            if not output or len(output[0]) == 0 or output[0][0].shape[0] == 0:
+                outputs.append(np.zeros((0, 6), dtype=np.float32))
+            else:
+                outputs.append(output[0][0])
+        except Exception as e:
+            print("ONNX Runtime Error:", e)
+            outputs.append(np.zeros((0, 6), dtype=np.float32))
+    return outputs
+
+
+def raw_boxes_from_model_output(model_output, scale_info_array, t):
     all_raw_boxes = []
-    all_boxes   = model_output[0]
-    all_scores  = model_output[1]
-    all_classes = model_output[2]
-    for boxes, scores, classes, scale in zip( all_boxes, all_scores, all_classes, scale_array ):
+    for detections, (scale, pad_w, pad_h) in zip(model_output, scale_info_array):
+        if detections.shape[0] > 0:
+            detections = scale_coords_back(detections.copy(), scale, pad_w, pad_h)
+
         raw_boxes = []
-        for box, score, class_id in zip( boxes, scores, classes ):
-            if score > betaconst.global_min_prob:
-                raw_boxes.append( {
-                    'x': float(math.floor(box[0]/scale)),
-                    'y': float(math.floor(box[1]/scale)),
-                    'w': float(math.ceil((box[2]-box[0])/scale)),
-                    'h': float(math.ceil((box[3]-box[1])/scale)),
-                    'class_id': float(class_id),
-                    'score': float(score),
-                    't': t,
-                } )
+        for det in detections:
+            x1, y1, x2, y2, score, class_id = det.tolist()
+
+            if score < betaconst.global_min_prob:
+                continue
+
+            class_id_int = int(class_id)
+            label = betaconst.class_name_from_id(class_id_int).lower()
+
+            if label not in [item.lower() for item in betaconfig.items_to_censor]:
+                continue
+
+            raw_boxes.append({
+                'x': float(math.floor(x1)),
+                'y': float(math.floor(y1)),
+                'w': float(math.ceil(x2 - x1)),
+                'h': float(math.ceil(y2 - y1)),
+                'class_id': float(class_id),
+                'score': float(score),
+                't': t,
+                'label': label  # 添加 label 字段，兼容 process_raw_box 使用
+            })
+
         all_raw_boxes.append(raw_boxes)
-    return( all_raw_boxes )
+    return all_raw_boxes
 
-def detect_raw_boxes( img_array, session, scale_array, t ):
-    model_output = get_raw_model_output( img_array, session )
-    return( raw_boxes_from_model_output( model_output, scale_array, t ) )
-    
-def raw_boxes_for_img( img, size, session, t ):
-    scale = get_image_resize_scale( img, size )
-    adj_img = prep_img_for_nn( img, size, scale )
-    raw_boxes = detect_raw_boxes( np.expand_dims( adj_img, axis=0 ), session, [ scale ], t )[0]
-    return( raw_boxes )
 
+def detect_raw_boxes(img_array, session, scale_info_array, t):
+    model_output = get_raw_model_output(img_array, session)
+    return raw_boxes_from_model_output(model_output, scale_info_array, t)
+
+
+def raw_boxes_for_img(img, size, session, t):
+    adj_img, scale, pad_w, pad_h = prep_img_for_nn(img, size)
+    raw_boxes = detect_raw_boxes([adj_img], session, [(scale, pad_w, pad_h)], t)
+    return raw_boxes[0] if raw_boxes else []
