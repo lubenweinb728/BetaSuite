@@ -1,6 +1,8 @@
 # BetaSuite
 
-## 此版本为多模型版本，无vision功能
+## 此版本为多模型版本，无vision功能。
+当前仅增加眼部识别功能
+可能会增加人体轮廓识别
 
 ## Welcome to the BetaSuite installation guidelines. 
 BetaSuite is composed of the following programs
