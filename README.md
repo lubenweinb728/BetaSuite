@@ -1,5 +1,7 @@
 # BetaSuite
 
+## 此版本为多模型版本 
+
 ## Welcome to the BetaSuite installation guidelines. 
 BetaSuite is composed of the following programs
 - BetaTest: this is a test program that tries to ensure, as much as it can, that all of your dependencies are set up correctly.
