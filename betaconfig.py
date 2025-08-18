@@ -10,15 +10,15 @@ gpu_enabled=0
 ###################################################################
 #### Neural Net input size.  This controls how the net views the image.
 #### Different values may be best for different photos.
-#### 
-#### [ 1280 ]: recommended, good performance and speed tradeoff
-#### [ 640 ]:  much faster, decent performance when model fills the frame
-#### [ 2560 ]: slower, better for collage or big group photos.  
-#### 
-#### [ 1280, 2560 ]: combine the two, may be safer than either alone
+####
+#### [ 640 ]:  default; much faster, decent performance when model fills the frame
+#### [ 1280 ]: higher accuracy, slower
+#### [ 2560 ]: slower, better for collage or big group photos.
+####
+#### [ 640, 1280 ]: run multiple passes at different sizes for additional safety
 ####
 #### [ 0 ]: not recommended, uses photos as-is to neural net.
-picture_sizes = [ 1280 ] 
+picture_sizes = [ 640 ]  # you can specify multiple sizes, e.g., [640, 1280]
 
 ##################################################################
 #### BetaTV does not run the neural net on every single frame of a
@@ -51,21 +51,21 @@ vision_cap_width = 960
 ### Put a # in front of a line to turn it off.
 items_to_censor = [
     'exposed_anus',
-    'exposed_vulva',
-    'exposed_breast',
-    'exposed_buttocks',
-    'covered_vulva',
-    'covered_breast',
+    'exposed_armpits',
+    'covered_belly',
+    'exposed_belly',
     'covered_buttocks',
+    'exposed_buttocks',
     'face_femme',
-    #'exposed_belly',
-    #'covered_belly',
-    #'exposed_feet',
-    #'covered_feet',
-    #'exposed_armpits',
-    #'exposed_penis',
-    #'exposed_chest',
-    #'face_masc',
+    'face_masc',
+    'covered_feet',
+    'exposed_feet',
+    'covered_breast',
+    'exposed_breast',
+    'covered_vulva',
+    'exposed_vulva',
+    'exposed_chest',
+    'exposed_penis',
 ]
 
 # censor style: whether the default censor should be black bars, pixelate, or blur.  Uncomment
@@ -94,7 +94,8 @@ item_overrides = {
         'exposed_vulva':  {'width_area_safety': 0.4, 'height_area_safety': 0.4 },
         'exposed_breast': {'width_area_safety': 0.4 },
         'covered_breast': {'width_area_safety': 0.4 },
-        'face_femme': {'censor_style': [ 'pixel', 10 ] }
+        'face_femme': {'censor_style': [ 'pixel', 10 ] },
+        'face_masc': {'censor_style': [ 'pixel', 10 ] },
 }
 
 ################################################
