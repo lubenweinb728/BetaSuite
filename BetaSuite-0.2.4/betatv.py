@@ -23,17 +23,28 @@ QSV_ENCODE_PRESET = 'slow'
 CPU_ENCODE_PRESET = 'medium'
 
 
+def qsv_device_args():
+    render_nodes = sorted(Path('/dev/dri').glob('renderD*'))
+    if not render_nodes:
+        return []
+    return ['-init_hw_device', f'qsv=qs:hw,child_device={render_nodes[0]}']
+
+
 def check_qsv_available():
     command = [
-        'ffmpeg', '-v', 'error', '-f', 'lavfi', '-i', 'color=c=black:s=128x128:r=1',
+        'ffmpeg', '-v', 'error', *qsv_device_args(), '-f', 'lavfi', '-i', 'color=c=black:s=128x128:r=1',
         '-frames:v', '1', '-vf', 'format=nv12', '-c:v', 'h264_qsv',
         '-global_quality', '22', '-preset', QSV_ENCODE_PRESET,
         '-f', 'null', '-'
     ]
     try:
         result = sp.run(command, capture_output=True, timeout=15)
+        if result.returncode:
+            logging.info('QSV unavailable: %s', result.stderr.decode(errors='replace').strip()
+                         or f'FFmpeg exited with {result.returncode}')
         return result.returncode == 0
-    except (OSError, sp.TimeoutExpired):
+    except (OSError, sp.TimeoutExpired) as err:
+        logging.warning('QSV probe failed: %s', err)
         return False
 
 
@@ -142,7 +153,7 @@ def encode_video(filepath, output, fps, size, boxes, qsv, audio_codec, audio_off
         '-video_size', f'{width}x{height}', '-framerate', f'{fps:.9f}', '-i', '-'
     ]
     if qsv:
-        command[1:1] = ['-filter_threads', '1']
+        command[1:1] = ['-filter_threads', '1', *qsv_device_args()]
     if audio_codec:
         command += ['-itsoffset', str(audio_offset), '-i', str(filepath),
                     '-map', '0:v:0', '-map', '1:a', '-c:a', audio_codec]
