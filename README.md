@@ -2,6 +2,8 @@
 
 基于 [BetaSuite 0.2.4](https://github.com/solarorb93/BetaSuite) 的本地图片和视频批处理工具。可用像素化、模糊或色块遮挡指定区域，也可反向遮挡画面并保留匹配区域。
 
+对应镜像 `admin233/betasuite_openvino_env:2026.11.22` 的容器启动说明见 [Docker Hub](https://hub.docker.com/r/admin233/betasuite_openvino_env)。
+
 ## 安装
 
 使用 Python 3.10。在项目根目录安装依赖。处理视频还需要把 `ffmpeg` 与 `ffprobe` 加入 PATH。
@@ -17,7 +19,7 @@ python -m pip install -r requirements.txt
 | 文件 | 用途 |
 | --- | --- |
 | `320n.onnx` | 主检测模型。[NudeNet 权重发布页](https://github.com/notAI-tech/NudeNet/releases/tag/v3.4-weights) |
-| `PFLD_112_1_opt_sim.onnx` | 可选。98 点人脸定位，用于绘制眼部黑条。请使用同名、输入为 `1×3×112×112`、输出为 `1×196` 的兼容权重。没有该模型时可在配置中关闭 `eyes_bar`。 |
+| `PFLD_112_1_opt_sim.onnx` | 可选。98 点人脸定位，用于绘制眼部黑条。请使用同名、输入为 `1×3×112×112`、输出为 `1×196` 的兼容权重。[眼部模型下载页](https://github.com/AnthonyF333/PFLD_GhostOne/blob/main/onnx_models/PFLD_112_1_opt_sim.onnx)。没有该模型时可在配置中关闭 `eyes_bar`。 |
 | `detector_v2_default_checkpoint.onnx` | 可选。仅在新版主模型无法运行时用于原版 CPU 兜底。 |
 
 仓库提供 Python 源码。模型权重、输入素材、输出文件和缓存由本地目录管理。
